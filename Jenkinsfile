@@ -14,6 +14,7 @@ pipeline {
         DOCKER_IMAGE = "pms-django:${BUILD_NUMBER}"
         CI_CONTAINER_NAME = "pms-ci-${BUILD_NUMBER}-${EXECUTOR_NUMBER}"
         APP_CONTAINER_NAME = "pms-app-ci-${BUILD_NUMBER}-${EXECUTOR_NUMBER}"
+        METRICS_CONTAINER_NAME = "pms-metrics-ci-${BUILD_NUMBER}-${EXECUTOR_NUMBER}"
     }
 
     stages {
@@ -130,20 +131,30 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        docker run --rm \\
-                            --volume "$WORKSPACE:/workspace" \\
-                            --workdir /app \\
-                            --user "$(id -u):$(id -g)" \\
-                            --entrypoint python \\
-                            "$DOCKER_IMAGE" scripts/collect_metrics.py \\
+                        set -eu
+                        docker rm --force "$METRICS_CONTAINER_NAME" >/dev/null 2>&1 || true
+                        docker run --detach --name "$METRICS_CONTAINER_NAME" \\
+                            --entrypoint sleep "$DOCKER_IMAGE" infinity
+                        if [ -f "$WORKSPACE/metrics.csv" ]; then
+                            docker cp "$WORKSPACE/metrics.csv" "$METRICS_CONTAINER_NAME:/app/metrics.csv"
+                            docker exec --user 0 "$METRICS_CONTAINER_NAME" chown django:django /app/metrics.csv
+                        fi
+                        if [ -f "$WORKSPACE/pipeline-results.log" ]; then
+                            docker cp "$WORKSPACE/pipeline-results.log" "$METRICS_CONTAINER_NAME:/app/pipeline-results.log"
+                            docker exec --user 0 "$METRICS_CONTAINER_NAME" chown django:django /app/pipeline-results.log
+                        fi
+                        docker exec "$METRICS_CONTAINER_NAME" python scripts/collect_metrics.py \\
                             --build-time "${BUILD_TIME_SECONDS:-0}" \\
                             --test-time "${TEST_TIME_SECONDS:-0}" \\
                             --deploy-time "${DEPLOY_TIME_SECONDS:-0}" \\
                             --success '1' \\
                             --build-number "$BUILD_NUMBER" \\
                             --result 'SUCCESS' \\
-                            --metrics-file /workspace/metrics.csv \\
-                            --log-file /workspace/pipeline-results.log
+                            --metrics-file /app/metrics.csv \\
+                            --log-file /app/pipeline-results.log
+                        docker cp "$METRICS_CONTAINER_NAME:/app/metrics.csv" "$WORKSPACE/metrics.csv"
+                        docker cp "$METRICS_CONTAINER_NAME:/app/pipeline-results.log" "$WORKSPACE/pipeline-results.log"
+                        docker rm --force "$METRICS_CONTAINER_NAME" >/dev/null
                     '''
                     env.METRICS_COLLECTED = 'true'
                 }
@@ -164,21 +175,31 @@ pipeline {
                     if (env.METRICS_COLLECTED != 'true') {
                         withEnv(["PIPELINE_RESULT=${result}", "PIPELINE_SUCCESS=${success}"]) {
                             sh '''
+                                set -eu
                                 if docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
-                                    docker run --rm \\
-                                        --volume "$WORKSPACE:/workspace" \\
-                                        --workdir /app \\
-                                        --user "$(id -u):$(id -g)" \\
-                                        --entrypoint python \\
-                                        "$DOCKER_IMAGE" scripts/collect_metrics.py \\
+                                    docker rm --force "$METRICS_CONTAINER_NAME" >/dev/null 2>&1 || true
+                                    docker run --detach --name "$METRICS_CONTAINER_NAME" \\
+                                        --entrypoint sleep "$DOCKER_IMAGE" infinity
+                                    if [ -f "$WORKSPACE/metrics.csv" ]; then
+                                        docker cp "$WORKSPACE/metrics.csv" "$METRICS_CONTAINER_NAME:/app/metrics.csv"
+                                        docker exec --user 0 "$METRICS_CONTAINER_NAME" chown django:django /app/metrics.csv
+                                    fi
+                                    if [ -f "$WORKSPACE/pipeline-results.log" ]; then
+                                        docker cp "$WORKSPACE/pipeline-results.log" "$METRICS_CONTAINER_NAME:/app/pipeline-results.log"
+                                        docker exec --user 0 "$METRICS_CONTAINER_NAME" chown django:django /app/pipeline-results.log
+                                    fi
+                                    docker exec "$METRICS_CONTAINER_NAME" python scripts/collect_metrics.py \\
                                         --build-time "${BUILD_TIME_SECONDS:-0}" \\
                                         --test-time "${TEST_TIME_SECONDS:-0}" \\
                                         --deploy-time "${DEPLOY_TIME_SECONDS:-0}" \\
                                         --success "$PIPELINE_SUCCESS" \\
                                         --build-number "$BUILD_NUMBER" \\
                                         --result "$PIPELINE_RESULT" \\
-                                        --metrics-file /workspace/metrics.csv \\
-                                        --log-file /workspace/pipeline-results.log
+                                        --metrics-file /app/metrics.csv \\
+                                        --log-file /app/pipeline-results.log
+                                    docker cp "$METRICS_CONTAINER_NAME:/app/metrics.csv" "$WORKSPACE/metrics.csv"
+                                    docker cp "$METRICS_CONTAINER_NAME:/app/pipeline-results.log" "$WORKSPACE/pipeline-results.log"
+                                    docker rm --force "$METRICS_CONTAINER_NAME" >/dev/null
                                 else
                                     echo 'Metrics were not collected because the Django image was not built.'
                                 fi
@@ -189,6 +210,7 @@ pipeline {
                     archiveArtifacts artifacts: 'metrics.csv,pipeline-results.log', allowEmptyArchive: true
                     sh 'docker rm --force "$APP_CONTAINER_NAME" >/dev/null 2>&1 || true'
                     sh 'docker rm --force "$CI_CONTAINER_NAME" >/dev/null 2>&1 || true'
+                    sh 'docker rm --force "$METRICS_CONTAINER_NAME" >/dev/null 2>&1 || true'
                     sh 'docker image rm "$DOCKER_IMAGE" >/dev/null 2>&1 || true'
                 }
             }
