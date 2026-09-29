@@ -23,48 +23,6 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
-            steps {
-                sh '''
-                    set -eu
-                    docker rm --force "$CI_CONTAINER_NAME" >/dev/null 2>&1 || true
-                    docker run --detach --name "$CI_CONTAINER_NAME" \\
-                        --volume "$WORKSPACE:/workspace" \\
-                        --workdir /workspace \\
-                        --env PYTHONDONTWRITEBYTECODE=1 \\
-                        --env DJANGO_DEBUG="$DJANGO_DEBUG" \\
-                        --env DJANGO_SECRET_KEY="$DJANGO_SECRET_KEY" \\
-                        --env DJANGO_ALLOWED_HOSTS="$DJANGO_ALLOWED_HOSTS" \\
-                        --env DB_ENGINE="$DB_ENGINE" \\
-                        python:3.12-slim sleep infinity
-                    docker exec "$CI_CONTAINER_NAME" sh -ec \\
-                        'python -m pip install --upgrade pip && python -m pip install -r requirements.txt'
-                '''
-            }
-        }
-
-        stage('Run Unit Tests') {
-            steps {
-                script {
-                    long testStartedAt = System.currentTimeMillis()
-                    try {
-                        sh 'docker exec "$CI_CONTAINER_NAME" python manage.py test --verbosity 2'
-                    } finally {
-                        env.TEST_TIME_SECONDS = "${Math.round((System.currentTimeMillis() - testStartedAt) / 1000.0)}"
-                    }
-                }
-            }
-        }
-
-        stage('Build Django Application') {
-            steps {
-                sh '''
-                    docker exec "$CI_CONTAINER_NAME" python manage.py check
-                    docker exec "$CI_CONTAINER_NAME" python manage.py collectstatic --noinput
-                '''
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 script {
@@ -74,6 +32,50 @@ pipeline {
                         sh 'docker build --tag "$DOCKER_IMAGE" .'
                     } finally {
                         env.BUILD_TIME_SECONDS = "${Math.round((System.currentTimeMillis() - buildStartedAt) / 1000.0)}"
+                    }
+                }
+            }
+        }
+
+        stage('Verify Image Dependencies') {
+            steps {
+                sh 'docker run --rm --entrypoint python "$DOCKER_IMAGE" -m pip check'
+            }
+        }
+
+        stage('Run Migrations and Collect Static Files') {
+            steps {
+                sh '''
+                    docker rm --force "$CI_CONTAINER_NAME" >/dev/null 2>&1 || true
+                    docker run --rm --name "$CI_CONTAINER_NAME" \\
+                        --env DJANGO_DEBUG="$DJANGO_DEBUG" \\
+                        --env DJANGO_SECRET_KEY="$DJANGO_SECRET_KEY" \\
+                        --env DJANGO_ALLOWED_HOSTS="$DJANGO_ALLOWED_HOSTS" \\
+                        --env DB_ENGINE="$DB_ENGINE" \\
+                        --entrypoint sh \\
+                        "$DOCKER_IMAGE" -ec \\
+                        'python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py check'
+                '''
+            }
+        }
+
+        stage('Run Unit Tests') {
+            steps {
+                script {
+                    long testStartedAt = System.currentTimeMillis()
+                    try {
+                        sh '''
+                            docker rm --force "$CI_CONTAINER_NAME" >/dev/null 2>&1 || true
+                            docker run --rm --name "$CI_CONTAINER_NAME" \\
+                                --env DJANGO_DEBUG="$DJANGO_DEBUG" \\
+                                --env DJANGO_SECRET_KEY="$DJANGO_SECRET_KEY" \\
+                                --env DJANGO_ALLOWED_HOSTS="$DJANGO_ALLOWED_HOSTS" \\
+                                --env DB_ENGINE="$DB_ENGINE" \\
+                                --entrypoint python \\
+                                "$DOCKER_IMAGE" manage.py test --verbosity 2
+                        '''
+                    } finally {
+                        env.TEST_TIME_SECONDS = "${Math.round((System.currentTimeMillis() - testStartedAt) / 1000.0)}"
                     }
                 }
             }
@@ -128,13 +130,20 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        docker exec --user "$(id -u):$(id -g)" "$CI_CONTAINER_NAME" python scripts/collect_metrics.py \\
+                        docker run --rm \\
+                            --volume "$WORKSPACE:/workspace" \\
+                            --workdir /app \\
+                            --user "$(id -u):$(id -g)" \\
+                            --entrypoint python \\
+                            "$DOCKER_IMAGE" scripts/collect_metrics.py \\
                             --build-time "${BUILD_TIME_SECONDS:-0}" \\
                             --test-time "${TEST_TIME_SECONDS:-0}" \\
                             --deploy-time "${DEPLOY_TIME_SECONDS:-0}" \\
                             --success '1' \\
                             --build-number "$BUILD_NUMBER" \\
-                            --result 'SUCCESS'
+                            --result 'SUCCESS' \\
+                            --metrics-file /workspace/metrics.csv \\
+                            --log-file /workspace/pipeline-results.log
                     '''
                     env.METRICS_COLLECTED = 'true'
                 }
@@ -155,27 +164,23 @@ pipeline {
                     if (env.METRICS_COLLECTED != 'true') {
                         withEnv(["PIPELINE_RESULT=${result}", "PIPELINE_SUCCESS=${success}"]) {
                             sh '''
-                                set -eu
-                                if docker inspect --format='{{.State.Running}}' "$CI_CONTAINER_NAME" 2>/dev/null | grep -qx true; then
-                                    docker exec --user "$(id -u):$(id -g)" "$CI_CONTAINER_NAME" python scripts/collect_metrics.py \\
-                                        --build-time "${BUILD_TIME_SECONDS:-0}" \\
-                                        --test-time "${TEST_TIME_SECONDS:-0}" \\
-                                        --deploy-time "${DEPLOY_TIME_SECONDS:-0}" \\
-                                        --success "$PIPELINE_SUCCESS" \\
-                                        --build-number "$BUILD_NUMBER" \\
-                                        --result "$PIPELINE_RESULT"
-                                else
+                                if docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
                                     docker run --rm \\
                                         --volume "$WORKSPACE:/workspace" \\
-                                        --workdir /workspace \\
+                                        --workdir /app \\
                                         --user "$(id -u):$(id -g)" \\
-                                        python:3.12-slim python scripts/collect_metrics.py \\
+                                        --entrypoint python \\
+                                        "$DOCKER_IMAGE" scripts/collect_metrics.py \\
                                         --build-time "${BUILD_TIME_SECONDS:-0}" \\
                                         --test-time "${TEST_TIME_SECONDS:-0}" \\
                                         --deploy-time "${DEPLOY_TIME_SECONDS:-0}" \\
                                         --success "$PIPELINE_SUCCESS" \\
                                         --build-number "$BUILD_NUMBER" \\
-                                        --result "$PIPELINE_RESULT"
+                                        --result "$PIPELINE_RESULT" \\
+                                        --metrics-file /workspace/metrics.csv \\
+                                        --log-file /workspace/pipeline-results.log
+                                else
+                                    echo 'Metrics were not collected because the Django image was not built.'
                                 fi
                             '''
                         }
