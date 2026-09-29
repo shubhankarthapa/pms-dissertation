@@ -3,16 +3,15 @@
 ## Requirements
 
 - A Jenkins controller with the Pipeline, Git, and Timestamper plugins
-- A Linux Jenkins agent with Python 3.12, `python3-venv`, Git, and Docker installed
+- A Linux Jenkins agent with Git and Docker installed; Python is not required on the agent
 - Permission for the Jenkins agent account to access the Docker daemon
-- The Linux agent configured with the Jenkins label `docker`
 
-The pipeline builds the existing Dockerfile and runs the container on the Jenkins agent. The agent must be able to build and start Docker containers.
+The agent must be able to build and start Docker containers, pull `python:3.12-slim`, and bind-mount its Jenkins workspace into those containers. The pipeline installs dependencies and runs all Python commands inside Docker.
 
 ## Configure a pipeline
 
 1. Push this project to a Git repository accessible by Jenkins.
-2. In Jenkins, choose **New Item**, select **Pipeline** (or **Multibranch Pipeline**), and configure the repository as the source. Ensure the job can run on an agent labeled `docker`.
+2. In Jenkins, choose **New Item**, select **Pipeline** (or **Multibranch Pipeline**), and configure the repository as the source. Ensure its agent has Docker access.
 3. Set the pipeline definition to **Pipeline script from SCM**, select Git, enter the repository URL and credentials if needed, and set the script path to `Jenkinsfile`.
 4. Save and run **Build Now**.
 

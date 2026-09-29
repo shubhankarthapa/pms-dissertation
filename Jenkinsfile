@@ -13,6 +13,7 @@ pipeline {
         DB_ENGINE = 'sqlite'
         DOCKER_IMAGE = "pms-django:${BUILD_NUMBER}"
         CI_CONTAINER_NAME = "pms-ci-${BUILD_NUMBER}-${EXECUTOR_NUMBER}"
+        APP_CONTAINER_NAME = "pms-app-ci-${BUILD_NUMBER}-${EXECUTOR_NUMBER}"
     }
 
     stages {
@@ -25,9 +26,19 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    python3 -m venv .venv
-                    .venv/bin/python -m pip install --upgrade pip
-                    .venv/bin/python -m pip install -r requirements.txt
+                    set -eu
+                    docker rm --force "$CI_CONTAINER_NAME" >/dev/null 2>&1 || true
+                    docker run --detach --name "$CI_CONTAINER_NAME" \\
+                        --volume "$WORKSPACE:/workspace" \\
+                        --workdir /workspace \\
+                        --env PYTHONDONTWRITEBYTECODE=1 \\
+                        --env DJANGO_DEBUG="$DJANGO_DEBUG" \\
+                        --env DJANGO_SECRET_KEY="$DJANGO_SECRET_KEY" \\
+                        --env DJANGO_ALLOWED_HOSTS="$DJANGO_ALLOWED_HOSTS" \\
+                        --env DB_ENGINE="$DB_ENGINE" \\
+                        python:3.12-slim sleep infinity
+                    docker exec "$CI_CONTAINER_NAME" sh -ec \\
+                        'python -m pip install --upgrade pip && python -m pip install -r requirements.txt'
                 '''
             }
         }
@@ -37,7 +48,7 @@ pipeline {
                 script {
                     long testStartedAt = System.currentTimeMillis()
                     try {
-                        sh '.venv/bin/python manage.py test --verbosity 2'
+                        sh 'docker exec "$CI_CONTAINER_NAME" python manage.py test --verbosity 2'
                     } finally {
                         env.TEST_TIME_SECONDS = "${Math.round((System.currentTimeMillis() - testStartedAt) / 1000.0)}"
                     }
@@ -47,12 +58,9 @@ pipeline {
 
         stage('Build Django Application') {
             steps {
-                script {
-                    env.BUILD_STARTED_AT = "${System.currentTimeMillis()}"
-                }
                 sh '''
-                    .venv/bin/python manage.py check
-                    .venv/bin/python manage.py collectstatic --noinput
+                    docker exec "$CI_CONTAINER_NAME" python manage.py check
+                    docker exec "$CI_CONTAINER_NAME" python manage.py collectstatic --noinput
                 '''
             }
         }
@@ -60,9 +68,8 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    long buildStartedAt = env.BUILD_STARTED_AT
-                        ? env.BUILD_STARTED_AT.toLong()
-                        : System.currentTimeMillis()
+                    long buildStartedAt = System.currentTimeMillis()
+                    env.BUILD_STARTED_AT = "${buildStartedAt}"
                     try {
                         sh 'docker build --tag "$DOCKER_IMAGE" .'
                     } finally {
@@ -79,8 +86,8 @@ pipeline {
                     try {
                         sh '''
                             set -eu
-                            docker rm --force "$CI_CONTAINER_NAME" >/dev/null 2>&1 || true
-                            docker run --detach --name "$CI_CONTAINER_NAME" \\
+                            docker rm --force "$APP_CONTAINER_NAME" >/dev/null 2>&1 || true
+                            docker run --detach --name "$APP_CONTAINER_NAME" \\
                                 --env DJANGO_DEBUG=True \\
                                 --env DJANGO_SECRET_KEY=jenkins-ci-only-secret-key \\
                                 --env DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver \\
@@ -89,24 +96,24 @@ pipeline {
 
                             attempt=0
                             while [ "$attempt" -lt 60 ]; do
-                                if ! docker inspect "$CI_CONTAINER_NAME" >/dev/null 2>&1; then
-                                    docker logs "$CI_CONTAINER_NAME" 2>&1 || true
+                                if ! docker inspect "$APP_CONTAINER_NAME" >/dev/null 2>&1; then
+                                    docker logs "$APP_CONTAINER_NAME" 2>&1 || true
                                     exit 1
                                 fi
-                                if docker logs "$CI_CONTAINER_NAME" 2>&1 | grep -q 'Starting development server at'; then
-                                    docker logs "$CI_CONTAINER_NAME"
+                                if docker logs "$APP_CONTAINER_NAME" 2>&1 | grep -q 'Starting development server at'; then
+                                    docker logs "$APP_CONTAINER_NAME"
                                     exit 0
                                 fi
-                                running=$(docker inspect --format='{{.State.Running}}' "$CI_CONTAINER_NAME")
+                                running=$(docker inspect --format='{{.State.Running}}' "$APP_CONTAINER_NAME")
                                 if [ "$running" != true ]; then
-                                    docker logs "$CI_CONTAINER_NAME"
+                                    docker logs "$APP_CONTAINER_NAME"
                                     exit 1
                                 fi
                                 attempt=$((attempt + 1))
                                 sleep 1
                             done
 
-                            docker logs "$CI_CONTAINER_NAME"
+                            docker logs "$APP_CONTAINER_NAME"
                             echo 'Container did not start Django within 60 seconds.'
                             exit 1
                         '''
@@ -120,15 +127,15 @@ pipeline {
         stage('Collect Build Metrics') {
             steps {
                 script {
-                    sh """
-                        python3 scripts/collect_metrics.py \\
-                            --build-time '${env.BUILD_TIME_SECONDS ?: '0'}' \\
-                            --test-time '${env.TEST_TIME_SECONDS ?: '0'}' \\
-                            --deploy-time '${env.DEPLOY_TIME_SECONDS ?: '0'}' \\
+                    sh '''
+                        docker exec --user "$(id -u):$(id -g)" "$CI_CONTAINER_NAME" python scripts/collect_metrics.py \\
+                            --build-time "${BUILD_TIME_SECONDS:-0}" \\
+                            --test-time "${TEST_TIME_SECONDS:-0}" \\
+                            --deploy-time "${DEPLOY_TIME_SECONDS:-0}" \\
                             --success '1' \\
-                            --build-number '${env.BUILD_NUMBER}' \\
+                            --build-number "$BUILD_NUMBER" \\
                             --result 'SUCCESS'
-                    """
+                    '''
                     env.METRICS_COLLECTED = 'true'
                 }
             }
@@ -146,18 +153,36 @@ pipeline {
                 String success = result == 'SUCCESS' ? '1' : '0'
                 try {
                     if (env.METRICS_COLLECTED != 'true') {
-                        sh """
-                            python3 scripts/collect_metrics.py \\
-                                --build-time '${env.BUILD_TIME_SECONDS ?: '0'}' \\
-                                --test-time '${env.TEST_TIME_SECONDS ?: '0'}' \\
-                                --deploy-time '${env.DEPLOY_TIME_SECONDS ?: '0'}' \\
-                                --success '${success}' \\
-                                --build-number '${env.BUILD_NUMBER}' \\
-                                --result '${result}'
-                        """
+                        withEnv(["PIPELINE_RESULT=${result}", "PIPELINE_SUCCESS=${success}"]) {
+                            sh '''
+                                set -eu
+                                if docker inspect --format='{{.State.Running}}' "$CI_CONTAINER_NAME" 2>/dev/null | grep -qx true; then
+                                    docker exec --user "$(id -u):$(id -g)" "$CI_CONTAINER_NAME" python scripts/collect_metrics.py \\
+                                        --build-time "${BUILD_TIME_SECONDS:-0}" \\
+                                        --test-time "${TEST_TIME_SECONDS:-0}" \\
+                                        --deploy-time "${DEPLOY_TIME_SECONDS:-0}" \\
+                                        --success "$PIPELINE_SUCCESS" \\
+                                        --build-number "$BUILD_NUMBER" \\
+                                        --result "$PIPELINE_RESULT"
+                                else
+                                    docker run --rm \\
+                                        --volume "$WORKSPACE:/workspace" \\
+                                        --workdir /workspace \\
+                                        --user "$(id -u):$(id -g)" \\
+                                        python:3.12-slim python scripts/collect_metrics.py \\
+                                        --build-time "${BUILD_TIME_SECONDS:-0}" \\
+                                        --test-time "${TEST_TIME_SECONDS:-0}" \\
+                                        --deploy-time "${DEPLOY_TIME_SECONDS:-0}" \\
+                                        --success "$PIPELINE_SUCCESS" \\
+                                        --build-number "$BUILD_NUMBER" \\
+                                        --result "$PIPELINE_RESULT"
+                                fi
+                            '''
+                        }
                     }
                 } finally {
                     archiveArtifacts artifacts: 'metrics.csv,pipeline-results.log', allowEmptyArchive: true
+                    sh 'docker rm --force "$APP_CONTAINER_NAME" >/dev/null 2>&1 || true'
                     sh 'docker rm --force "$CI_CONTAINER_NAME" >/dev/null 2>&1 || true'
                     sh 'docker image rm "$DOCKER_IMAGE" >/dev/null 2>&1 || true'
                 }
