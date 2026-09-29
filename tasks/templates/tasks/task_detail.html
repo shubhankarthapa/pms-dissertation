@@ -1,0 +1,21 @@
+{% extends "accounts/base.html" %}
+{% block title %}{{ task.title }}{% endblock %}
+{% block content %}
+<section class="mx-auto" style="max-width: 900px;">
+    <nav aria-label="Breadcrumb" class="mb-3"><a class="small text-accent" href="{% url 'tasks:list' %}">Tasks</a><span class="text-secondary small"> / {{ task.title }}</span></nav>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3 mb-4">
+        <div><p class="small text-uppercase text-accent fw-semibold mb-2">Task details</p><h1 class="h2 mb-2">{{ task.title }}</h1><p class="text-secondary mb-0">For {% if can_manage %}<a class="text-accent" href="{% url 'projects:detail' task.project_id %}">{{ task.project.title }}</a>{% else %}{{ task.project.title }}{% endif %} · Created {{ task.created_at|date:"F j, Y" }} · Updated {{ task.updated_at|date:"F j, Y" }}</p></div>
+        {% if can_manage %}<div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="{% url 'tasks:update' task.pk %}">Edit</a><a class="btn btn-outline-danger" href="{% url 'tasks:delete' task.pk %}">Delete</a></div>{% endif %}
+    </div>
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4"><div class="bg-white border rounded-2 p-3 h-100"><div class="small text-secondary mb-1">Status</div><div class="fw-semibold">{{ task.get_status_display }}</div></div></div>
+        <div class="col-12 col-md-4"><div class="bg-white border rounded-2 p-3 h-100"><div class="small text-secondary mb-1">Priority</div><div class="fw-semibold">{{ task.get_priority_display }}</div></div></div>
+        <div class="col-12 col-md-4"><div class="bg-white border rounded-2 p-3 h-100"><div class="small text-secondary mb-1">Assigned to</div><div class="fw-semibold">{% if task.assigned_to %}{{ task.assigned_to.get_username }}{% else %}Unassigned{% endif %}</div></div></div>
+    </div>
+    <article class="bg-white border rounded-2 p-4 p-md-5 mb-4"><h2 class="h6 text-uppercase text-secondary mb-3">Description</h2>{% if task.description %}<div class="lh-lg">{{ task.description|linebreaksbr }}</div>{% else %}<p class="text-secondary mb-0">No description provided.</p>{% endif %}</article>
+    <form method="post" action="{% url 'tasks:change_status' task.pk %}" class="bg-white border rounded-2 p-3 p-md-4">
+        {% csrf_token %}<label class="form-label fw-semibold" for="id_status">Update status</label>
+        <div class="d-flex flex-column flex-sm-row gap-2"><select class="form-select" id="id_status" name="status">{% for value, label in task.Status.choices %}<option value="{{ value }}"{% if task.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="btn btn-primary text-nowrap" type="submit">Save status</button></div>
+    </form>
+</section>
+{% endblock %}

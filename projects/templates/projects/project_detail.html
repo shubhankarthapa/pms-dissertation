@@ -1,0 +1,38 @@
+{% extends "accounts/base.html" %}
+{% block title %}{{ project.title }}{% endblock %}
+{% block content %}
+<section class="mx-auto" style="max-width: 900px;">
+    <nav aria-label="Breadcrumb" class="mb-3"><a class="small text-accent" href="{% url 'projects:list' %}">Projects</a><span class="text-secondary small"> / {{ project.title }}</span></nav>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3 mb-4">
+        <div>
+            <p class="small text-uppercase text-accent fw-semibold mb-2">Project details</p>
+            <h1 class="h2 mb-2">{{ project.title }}</h1>
+            <p class="text-secondary mb-0">Created {{ project.created_at|date:"F j, Y" }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="{% url 'projects:update' project.pk %}">Edit</a>
+            <a class="btn btn-outline-danger" href="{% url 'projects:delete' project.pk %}">Delete</a>
+        </div>
+    </div>
+    <article class="bg-white border rounded-2 p-4 p-md-5">
+        <h2 class="h6 text-uppercase text-secondary mb-3">Description</h2>
+        {% if project.description %}<div class="lh-lg">{{ project.description|linebreaksbr }}</div>{% else %}<p class="text-secondary mb-0">No description provided.</p>{% endif %}
+    </article>
+    <div class="d-flex justify-content-between align-items-center gap-3 mt-5 mb-3">
+        <h2 class="h4 mb-0">Tasks</h2>
+        <a class="btn btn-primary btn-sm" href="{% url 'tasks:create' %}?project={{ project.pk }}">Create task</a>
+    </div>
+    {% if tasks %}
+        <div class="list-group">
+            {% for task in tasks %}
+                <a class="list-group-item list-group-item-action d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2" href="{% url 'tasks:detail' task.pk %}">
+                    <span><span class="fw-semibold">{{ task.title }}</span><span class="small text-secondary d-block">Assigned to {% if task.assigned_to %}{{ task.assigned_to.get_username }}{% else %}Nobody{% endif %}</span></span>
+                    <span class="d-flex gap-2"><span class="badge text-bg-light border">{{ task.get_priority_display }}</span><span class="badge text-bg-secondary">{{ task.get_status_display }}</span></span>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-secondary">No tasks have been added to this project.</p>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "accounts/base.html" %}
+{% block title %}Activity Log{% endblock %}
+{% block content %}
+<section>
+    <div class="mb-4">
+        <p class="small text-uppercase text-accent fw-semibold mb-2">Audit trail</p>
+        <h1 class="h2 mb-1">Activity Log</h1>
+        <p class="text-secondary mb-0">Recent account and workspace events.</p>
+    </div>
+
+    {% if activities %}
+        <div class="table-responsive bg-white border rounded-2">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light"><tr><th scope="col" class="ps-3">Activity</th><th scope="col">User</th><th scope="col" class="text-nowrap">Timestamp</th></tr></thead>
+                <tbody>
+                    {% for item in activities %}
+                        <tr>
+                            <td class="ps-3">{{ item.activity }}</td>
+                            <td>{% if item.user %}{{ item.user.get_username }}{% else %}<span class="text-secondary">Deleted account</span>{% endif %}</td>
+                            <td class="text-secondary text-nowrap">{{ item.timestamp|date:"M j, Y, P" }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if page_obj.paginator.num_pages > 1 %}
+            <nav class="mt-3" aria-label="Activity log pages">
+                <ul class="pagination justify-content-center flex-wrap">
+                    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>{% endif %}
+                    <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+                    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>{% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    {% else %}
+        <div class="bg-white border rounded-2 p-4"><p class="text-secondary mb-0">No activity has been recorded yet.</p></div>
+    {% endif %}
+</section>
+{% endblock %}

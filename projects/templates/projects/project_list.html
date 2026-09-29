@@ -1,0 +1,52 @@
+{% extends "accounts/base.html" %}
+{% block title %}Projects{% endblock %}
+{% block content %}
+<section>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+        <div>
+            <p class="small text-uppercase text-accent fw-semibold mb-2">Workspace</p>
+            <h1 class="h2 mb-1">Projects</h1>
+            <p class="text-secondary mb-0">Keep your work organized and moving.</p>
+        </div>
+        <a class="btn btn-primary" href="{% url 'projects:create' %}">Create project</a>
+    </div>
+
+    <form method="get" class="row g-2 mb-4" role="search">
+        <div class="col-12 col-sm">
+            <label class="visually-hidden" for="projectSearch">Search projects</label>
+            <input id="projectSearch" class="form-control" type="search" name="q" value="{{ query }}" placeholder="Search title or description">
+        </div>
+        <div class="col-6 col-sm-auto"><button class="btn btn-outline-secondary w-100" type="submit">Search</button></div>
+        {% if query %}<div class="col-6 col-sm-auto"><a class="btn btn-light border w-100" href="{% url 'projects:list' %}">Clear</a></div>{% endif %}
+    </form>
+
+    {% if projects %}
+        <div class="table-responsive bg-white border rounded-2">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light"><tr><th scope="col" class="ps-3">Project</th><th scope="col">Created</th><th scope="col" class="text-end pe-3">Actions</th></tr></thead>
+                <tbody>
+                    {% for project in projects %}
+                        <tr>
+                            <td class="ps-3">
+                                <a class="fw-semibold text-decoration-none text-accent" href="{% url 'projects:detail' project.pk %}">{{ project.title }}</a>
+                                <div class="small text-secondary text-truncate" style="max-width: 560px;">{{ project.description|default:"No description" }}</div>
+                            </td>
+                            <td class="text-secondary text-nowrap">{{ project.created_at|date:"M j, Y" }}</td>
+                            <td class="text-end pe-3 text-nowrap">
+                                <a class="btn btn-sm btn-outline-secondary" href="{% url 'projects:detail' project.pk %}">Open</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="{% url 'projects:update' project.pk %}">Edit</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="bg-white border rounded-2 p-4 p-md-5 text-center">
+            <h2 class="h5">{% if query %}No matching projects{% else %}No projects yet{% endif %}</h2>
+            <p class="text-secondary mb-3">{% if query %}Try a different search, or clear the current one.{% else %}Create a project to start organizing your work.{% endif %}</p>
+            {% if query %}<a class="btn btn-outline-secondary" href="{% url 'projects:list' %}">Clear search</a>{% else %}<a class="btn btn-primary" href="{% url 'projects:create' %}">Create project</a>{% endif %}
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

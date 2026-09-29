@@ -1,0 +1,13 @@
+{% extends "accounts/base.html" %}
+{% block title %}{% if is_edit %}Edit task{% else %}Create task{% endif %}{% endblock %}
+{% block content %}
+<section class="bg-white border rounded-2 mx-auto p-4 p-md-5" style="max-width: 760px;">
+    <p class="small text-uppercase text-accent fw-semibold mb-2">Tasks</p><h1 class="h2 mb-2">{% if is_edit %}Edit task{% else %}Create a task{% endif %}</h1><p class="text-secondary mb-4">Add the details, select a project, and optionally assign a user.</p>
+    {% if not form.fields.project.queryset.exists %}<div class="alert alert-info">Create a project before adding a task. <a href="{% url 'projects:create' %}">Create project</a>.</div>{% endif %}
+    <form method="post" novalidate>{% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}<div class="mb-3"><label class="form-label fw-medium" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}{% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}</div>{% endfor %}
+        <div class="d-flex flex-column flex-sm-row gap-2 mt-4"><button class="btn btn-primary" type="submit">{% if is_edit %}Save changes{% else %}Create task{% endif %}</button><a class="btn btn-light border" href="{% if task %}{% url 'tasks:detail' task.pk %}{% else %}{% url 'tasks:list' %}{% endif %}">Cancel</a></div>
+    </form>
+</section>
+{% endblock %}

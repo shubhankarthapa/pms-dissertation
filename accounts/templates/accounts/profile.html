@@ -1,0 +1,19 @@
+{% extends "accounts/base.html" %}
+{% block title %}My profile{% endblock %}
+{% block content %}
+<section class="mx-auto" style="max-width: 760px;">
+    <p class="small text-uppercase text-accent fw-semibold mb-2">Account</p>
+    <h1 class="h2 mb-4">My profile</h1>
+    <div class="auth-panel p-4 p-md-5">
+        <dl class="row mb-0">
+            <dt class="col-sm-4 text-secondary mb-2">Username</dt>
+            <dd class="col-sm-8 mb-3">{{ user.get_username }}</dd>
+            <dt class="col-sm-4 text-secondary mb-2">Email address</dt>
+            <dd class="col-sm-8 mb-3">{{ user.email|default:"Not provided" }}</dd>
+            <dt class="col-sm-4 text-secondary mb-2">Member since</dt>
+            <dd class="col-sm-8 mb-0">{{ user.date_joined|date:"F j, Y" }}</dd>
+        </dl>
+    </div>
+    <a class="btn btn-primary mt-4" href="{% url 'accounts:password_change' %}">Change password</a>
+</section>
+{% endblock %}

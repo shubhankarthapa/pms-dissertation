@@ -1,0 +1,35 @@
+{% extends "accounts/base.html" %}
+{% block title %}Tasks{% endblock %}
+{% block content %}
+<section>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+        <div><p class="small text-uppercase text-accent fw-semibold mb-2">Work queue</p><h1 class="h2 mb-1">Tasks</h1><p class="text-secondary mb-0">Tasks in your projects and tasks assigned to you.</p></div>
+        <a class="btn btn-primary" href="{% url 'tasks:create' %}">Create task</a>
+    </div>
+    <form method="get" class="row g-2 mb-4">
+        <div class="col-12 col-md"><label class="visually-hidden" for="taskSearch">Search tasks</label><input id="taskSearch" class="form-control" type="search" name="q" value="{{ query }}" placeholder="Search task or project"></div>
+        <div class="col-12 col-sm-6 col-md-3"><label class="visually-hidden" for="taskProject">Filter project</label><select id="taskProject" class="form-select" name="project"><option value="">All projects</option>{% for project in projects %}<option value="{{ project.pk }}"{% if selected_project == project.pk|stringformat:"s" %} selected{% endif %}>{{ project.title }}</option>{% endfor %}</select></div>
+        <div class="col-8 col-sm-6 col-md-3"><label class="visually-hidden" for="taskStatus">Filter status</label><select id="taskStatus" class="form-select" name="status"><option value="">All statuses</option>{% for value, label in status_choices %}<option value="{{ value }}"{% if selected_status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+        <div class="col-4 col-md-auto"><button class="btn btn-outline-secondary w-100" type="submit">Filter</button></div>
+        {% if query or selected_status or selected_project %}<div class="col-12 col-md-auto"><a class="btn btn-light border w-100" href="{% url 'tasks:list' %}">Clear</a></div>{% endif %}
+    </form>
+    {% if tasks %}
+        <div class="table-responsive bg-white border rounded-2">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light"><tr><th scope="col" class="ps-3">Task</th><th scope="col">Project</th><th scope="col">Status</th><th scope="col">Priority</th><th scope="col">Assignee</th></tr></thead>
+                <tbody>{% for task in tasks %}
+                    <tr>
+                        <td class="ps-3"><a class="fw-semibold text-decoration-none text-accent" href="{% url 'tasks:detail' task.pk %}">{{ task.title }}</a><div class="small text-secondary">{{ task.created_at|date:"M j, Y" }}</div></td>
+                        <td>{% if task.project.created_by_id == user.pk %}<a class="text-body" href="{% url 'projects:detail' task.project_id %}">{{ task.project.title }}</a>{% else %}{{ task.project.title }}{% endif %}</td>
+                        <td class="text-nowrap">{{ task.get_status_display }}</td>
+                        <td class="text-nowrap">{{ task.get_priority_display }}</td>
+                        <td>{% if task.assigned_to %}{{ task.assigned_to.get_username }}{% else %}<span class="text-secondary">Unassigned</span>{% endif %}</td>
+                    </tr>
+                {% endfor %}</tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="bg-white border rounded-2 p-4 p-md-5 text-center"><h2 class="h5">No tasks found</h2><p class="text-secondary mb-3">Create a task in one of your projects, or adjust your filters.</p><a class="btn btn-primary" href="{% url 'tasks:create' %}">Create task</a></div>
+    {% endif %}
+</section>
+{% endblock %}
