@@ -16,6 +16,7 @@
             <label class="visually-hidden" for="projectSearch">Search projects</label>
             <!-- <input id="projectSearch" class="form-control" type="search" name="q" value="{{ query }}" placeholder="Search title or description"> -->
             <input id="projectSearch" class="form-control" type="search" name="q" value="{{ query }}" placeholder="Search projects" aria-label="Search projects by title or description">
+            <p>Total Projects: {{ project_count }}</p>
         </div>
         <div class="col-6 col-sm-auto"><button class="btn btn-outline-secondary w-100" type="submit">Search</button></div>
         {% if query %}<div class="col-6 col-sm-auto"><a class="btn btn-light border w-100" href="{% url 'projects:list' %}">Clear</a></div>{% endif %}

@@ -8,14 +8,36 @@ from .forms import ProjectForm
 from .models import Project
 
 
+# @login_required
+# def project_list(request):
+# 	query = request.GET.get("q", "").strip()
+# 	projects = Project.objects.filter(created_by=request.user)
+# 	if query:
+# 		projects = projects.filter(Q(title__icontains=query) | Q(description__icontains=query))
+# 	return render(request, "projects/project_list.html", {"projects": projects, "query": query})
+
 @login_required
 def project_list(request):
-	query = request.GET.get("q", "").strip()
-	projects = Project.objects.filter(created_by=request.user)
-	if query:
-		projects = projects.filter(Q(title__icontains=query) | Q(description__icontains=query))
-	return render(request, "projects/project_list.html", {"projects": projects, "query": query})
+    query = request.GET.get("q", "").strip()
+    projects = Project.objects.filter(created_by=request.user)
 
+    if query:
+        projects = projects.filter(
+            Q(title__icontains=query) |
+            Q(description__icontains=query)
+        )
+
+    project_count = projects.count()
+
+    return render(
+        request,
+        "projects/project_list.html",
+        {
+            "projects": projects,
+            "query": query,
+            "project_count": project_count,
+        },
+    )
 
 @login_required
 def project_detail(request, pk):
