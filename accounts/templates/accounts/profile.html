@@ -14,6 +14,12 @@
             <dd class="col-sm-8 mb-0">{{ user.date_joined|date:"F j, Y" }}</dd>
         </dl>
     </div>
+    <div class="card">
+        <div class="card-body">
+            <p><strong>Username:</strong> {{ user.get_username }}</p>
+            <p><strong>Email address:</strong> {{ request.user.email }}</p>
+        </div>
+    </div>
     <a class="btn btn-primary mt-4" href="{% url 'accounts:password_change' %}">Change password</a>
 </section>
 {% endblock %}

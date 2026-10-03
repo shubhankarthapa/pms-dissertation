@@ -64,6 +64,9 @@
                     </div>
                 {% endfor %}
             </div>
+        {% url 'accounts:profile' %}
+            Profile
+        </a>
         {% endif %}
         {% block content %}{% endblock %}
     </main>
