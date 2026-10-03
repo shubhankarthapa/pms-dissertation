@@ -29,4 +29,5 @@ urlpatterns = [
         ),
         name="password_change",
     ),
+    path("health/", views.health_check, name="health"),
 ]
