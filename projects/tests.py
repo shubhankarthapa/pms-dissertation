@@ -9,6 +9,11 @@ User = get_user_model()
 
 
 class ProjectManagementTests(TestCase):
+
+	def test_projects_page_loads(self):
+		response = self.client.get("/projects/")
+		self.assertIn(response.status_code, [200, 302]) # Allow for redirect if not logged in
+
 	def setUp(self):
 		self.user = User.objects.create_user(username="owner", password="Owner-Password-482!")
 		self.other_user = User.objects.create_user(username="other", password="Other-Password-482!")

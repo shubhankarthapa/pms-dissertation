@@ -1,3 +1,22 @@
+# services:
+#   web:
+#     build: .
+#     init: true
+#     volumes:
+#       # 
+#       - /var/run/docker.sock:/var/run/docker.sock
+#     environment:
+#       DJANGO_DEBUG: "${DJANGO_DEBUG:-True}"
+#       DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY:-}"
+#       DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,testserver}"
+#       DJANGO_CSRF_TRUSTED_ORIGINS: "${DJANGO_CSRF_TRUSTED_ORIGINS:-}"
+#       DB_ENGINE: "${DB_ENGINE:-sqlite}"
+#     ports:
+#       - "${WEB_PORT:-8000}:8000"
+#     command: python manage.py runserver 0.0.0.0:8000
+
+
+
 services:
   web:
     build: .
