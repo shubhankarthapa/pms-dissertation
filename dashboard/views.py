@@ -6,7 +6,6 @@ from django.shortcuts import render
 from projects.models import Project
 from tasks.models import Task
 
-
 @login_required
 def home(request):
 	user_model = get_user_model()
@@ -41,6 +40,10 @@ def home(request):
 		}
 		for project in projects
 	]
+
+	total_projects = Project.objects.filter(
+		created_by=request.user
+	).count()
 
 	context = {
 		"total_projects": len(project_progress),

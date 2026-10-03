@@ -5,7 +5,10 @@
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
         <!-- <div><p class="small text-uppercase text-accent fw-semibold mb-2">Overview</p><h1 class="h2 mb-1">Dashboard</h1><p class="text-secondary mb-0">A snapshot of your projects and task workload.</p></div> -->
         <div><p class="small text-uppercase text-accent fw-semibold mb-2">Overview</p><h1 class="h2 mb-1">Dashboard for your Projects</h1><p class="text-secondary mb-0">A snapshot of your projects and task workload.</p></div>
+        <p>Total Projects: {{ total_projects }}</p>
         <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-secondary" href="{% url 'projects:create' %}">New project</a><a class="btn btn-primary" href="{% url 'tasks:create' %}">New task</a></div>
+        
+
     </div>
 
     <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-3 mb-4">
