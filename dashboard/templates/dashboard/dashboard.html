@@ -3,7 +3,8 @@
 {% block content %}
 <section>
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
-        <div><p class="small text-uppercase text-accent fw-semibold mb-2">Overview</p><h1 class="h2 mb-1">Dashboard</h1><p class="text-secondary mb-0">A snapshot of your projects and task workload.</p></div>
+        <!-- <div><p class="small text-uppercase text-accent fw-semibold mb-2">Overview</p><h1 class="h2 mb-1">Dashboard</h1><p class="text-secondary mb-0">A snapshot of your projects and task workload.</p></div> -->
+        <div><p class="small text-uppercase text-accent fw-semibold mb-2">Overview</p><h1 class="h2 mb-1">Dashboard for your Projects</h1><p class="text-secondary mb-0">A snapshot of your projects and task workload.</p></div>
         <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-secondary" href="{% url 'projects:create' %}">New project</a><a class="btn btn-primary" href="{% url 'tasks:create' %}">New task</a></div>
     </div>
 
@@ -31,7 +32,9 @@
                         {% for item in project_progress %}
                             <div class="{% if not forloop.last %}mb-4{% endif %}">
                                 <div class="d-flex justify-content-between gap-3 mb-2"><a class="fw-semibold text-decoration-none text-accent text-truncate" href="{% url 'projects:detail' item.project.pk %}">{{ item.project.title }}</a><span class="small text-secondary text-nowrap">{{ item.completed_task_count }} / {{ item.task_count }} tasks</span></div>
-                                <div class="progress" role="progressbar" aria-label="{{ item.project.title }} completion" aria-valuenow="{{ item.percentage }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-success" style="width: {{ item.percentage }}%">{{ item.percentage }}%</div></div>
+                                <div class="progress">
+                                    <div class="progress-bar bg-success" role="progressbar" aria-label="{{ item.project.title }} completion" aria-valuenow="{{ item.percentage }}" aria-valuemin="0" aria-valuemax="100" aria-valuetext="{{ item.percentage }}%" data-progress="{{ item.percentage }}">{{ item.percentage }}%</div>
+                                </div>
                             </div>
                         {% endfor %}
                     {% else %}
@@ -64,6 +67,10 @@
     const statusData = dashboardData.status;
     const priorityData = dashboardData.priority;
     const completionData = dashboardData.project_completion;
+
+    document.querySelectorAll("[data-progress]").forEach(progressBar => {
+        progressBar.style.width = `${progressBar.dataset.progress}%`;
+    });
 
     new Chart(document.getElementById("statusChart"), {
         type: "doughnut",
