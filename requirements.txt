@@ -2,3 +2,5 @@ Django==6.1.1
 gunicorn==23.0.0
 psycopg[binary]==3.2.10
 whitenoise==6.9.0
+gymnasium>=1.0,<2.0
+stable-baselines3>=2.0,<3.0

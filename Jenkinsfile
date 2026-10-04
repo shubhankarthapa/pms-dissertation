@@ -39,6 +39,35 @@ pipeline {
             }
         }
 
+        stage('Recommend RL Pipeline Strategy') {
+            steps {
+                sh '''
+                    set -eu
+                    rm -f recommendation.txt
+                    .venv/bin/python rl/predict.py \\
+                        --csv-path metrics_traditional.csv \\
+                        --model-path rl_model.zip \\
+                        --recommendation-file recommendation.txt \\
+                        --seed "$BUILD_NUMBER"
+                    test -s recommendation.txt
+                '''
+                script {
+                    def selectedStrategy = readFile('recommendation.txt').trim()
+                    def validStrategies = [
+                        'Standard Pipeline',
+                        'Enable Cache',
+                        'Parallel Test Execution',
+                        'Cache + Parallel Testing'
+                    ]
+                    if (!validStrategies.contains(selectedStrategy)) {
+                        error("Invalid RL pipeline recommendation: ${selectedStrategy}")
+                    }
+                    echo "RL selected optimization strategy: ${selectedStrategy}"
+                }
+                archiveArtifacts artifacts: 'recommendation.txt', fingerprint: true
+            }
+        }
+
         stage('Run Django Migrations') {
             steps {
                 sh '.venv/bin/python manage.py migrate --noinput'
@@ -85,9 +114,9 @@ pipeline {
             }
         }
 
-        stage('Archive metrics.csv and pipeline-results.log') {
+        stage('Archive pipeline artifacts') {
             steps {
-                archiveArtifacts artifacts: 'metrics.csv,pipeline-results.log', fingerprint: true
+                archiveArtifacts artifacts: 'metrics.csv,pipeline-results.log,recommendation.txt', fingerprint: true
             }
         }
     }
@@ -114,7 +143,7 @@ pipeline {
                         --result FAILURE
                 fi
             '''
-            archiveArtifacts artifacts: 'metrics.csv,pipeline-results.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'metrics.csv,pipeline-results.log,recommendation.txt', allowEmptyArchive: true
         }
         cleanup {
             sh 'rm -f "$WORKSPACE/.ci-test-time"'
