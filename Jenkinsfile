@@ -58,6 +58,9 @@ pipeline {
                         'Enable Cache',
                         'Parallel Test Execution',
                         'Cache + Parallel Testing'
+                        'Resource Optimized Mode',
+                        'Security Scan',
+                        'Fast Build Mode'
                     ]
                     if (!validStrategies.contains(selectedStrategy)) {
                         error("Invalid RL pipeline recommendation: ${selectedStrategy}")
