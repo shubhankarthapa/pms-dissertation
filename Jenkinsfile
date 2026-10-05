@@ -11,6 +11,7 @@ pipeline {
         DJANGO_SECRET_KEY = 'jenkins-ci-only-secret-key'
         DJANGO_ALLOWED_HOSTS = 'localhost,127.0.0.1,testserver'
         DB_ENGINE = 'sqlite'
+        PROMETHEUS_PUSHGATEWAY_URL = 'http://localhost:9091'
     }
 
     stages {
@@ -56,7 +57,7 @@ pipeline {
                     def validStrategies = [
                         'Standard Pipeline',
                         'Enable Cache',
-                        'Parallel Test Execution',
+                        'Parallel Testing',
                         'Cache + Parallel Testing',
                         'Resource Optimized Mode',
                         'Security Scan',
@@ -112,7 +113,11 @@ pipeline {
                         --deploy-time 0 \\
                         --success 1 \\
                         --build-number "$BUILD_NUMBER" \\
-                        --result SUCCESS
+                        --result SUCCESS \\
+                        --prometheus-file pipeline.prom
+                    curl --fail --silent --show-error --retry 3 \\
+                        --data-binary @pipeline.prom \\
+                        "$PROMETHEUS_PUSHGATEWAY_URL/metrics/job/jenkins_pipeline/build/$BUILD_NUMBER"
                 '''
             }
         }
@@ -126,6 +131,9 @@ pipeline {
 
     post {
         unsuccessful {
+            script {
+                env.CI_RESULT = currentBuild.currentResult
+            }
             sh '''
                 set -eu
                 if [ -f scripts/collect_metrics.py ]; then
@@ -143,13 +151,17 @@ pipeline {
                         --deploy-time 0 \\
                         --success 0 \\
                         --build-number "$BUILD_NUMBER" \\
-                        --result FAILURE
+                        --result "$CI_RESULT" \\
+                        --prometheus-file pipeline.prom
+                    curl --fail --silent --show-error --retry 3 \\
+                        --data-binary @pipeline.prom \\
+                        "$PROMETHEUS_PUSHGATEWAY_URL/metrics/job/jenkins_pipeline/build/$BUILD_NUMBER"
                 fi
             '''
             archiveArtifacts artifacts: 'metrics.csv,pipeline-results.log,recommendation.txt', allowEmptyArchive: true
         }
         cleanup {
-            sh 'rm -f "$WORKSPACE/.ci-test-time"'
+            sh 'rm -f "$WORKSPACE/.ci-test-time" "$WORKSPACE/pipeline.prom"'
         }
     }
 }
