@@ -56,6 +56,11 @@ def main(argv: Sequence[str] | None = None) -> None:
     env = CICDPipelineEnv(args.csv_path)
     try:
         logger.info(
+            "Training with observation space %s and action space %s",
+            env.observation_space,
+            env.action_space,
+        )
+        logger.info(
             "Starting DQN training for %d timesteps with seed %d",
             args.timesteps,
             args.seed,

@@ -21,10 +21,20 @@ DEFAULT_MODEL_PATH = PROJECT_ROOT / "rl_model.zip"
 ACTION_NAMES = {
     PipelineAction.STANDARD: "Standard Pipeline",
     PipelineAction.CACHE: "Enable Cache",
-    PipelineAction.PARALLEL_TESTS: "Parallel Test Execution",
+    PipelineAction.PARALLEL_TESTS: "Parallel Testing",
     PipelineAction.CACHE_AND_PARALLEL_TESTS: "Cache + Parallel Testing",
+    PipelineAction.SECURITY_SCAN: "Security Scan",
+    PipelineAction.FAST_BUILD: "Fast Build Mode",
+    PipelineAction.RESOURCE_OPTIMIZED: "Resource Optimized Mode",
 }
-STATE_NAMES = ("build_time", "test_time", "deploy_time", "success")
+STATE_NAMES = (
+    "build_time",
+    "test_time",
+    "deploy_time",
+    "cpu_usage",
+    "memory_usage",
+    "success",
+)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
