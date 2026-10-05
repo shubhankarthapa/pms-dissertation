@@ -57,7 +57,7 @@ pipeline {
                         'Standard Pipeline',
                         'Enable Cache',
                         'Parallel Test Execution',
-                        'Cache + Parallel Testing'
+                        'Cache + Parallel Testing',
                         'Resource Optimized Mode',
                         'Security Scan',
                         'Fast Build Mode'
